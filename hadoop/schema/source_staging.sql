@@ -1,8 +1,4 @@
--- Create database (optional)
-CREATE DATABASE IF NOT EXISTS airline_db;
-USE airline_db;
 
--- Passengers table
 CREATE EXTERNAL TABLE passengers (
     passenger_id STRING,
     national_id STRING,
