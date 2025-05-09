@@ -12,7 +12,7 @@ class PostgresToHdfsExporter:
         self.tables = tables
         self.hdfs_container = hdfs_container
         self.container_temp_dir = container_temp_dir
-        self.last_extract_dir = "last_extracts"
+        self.last_extract_dir = "/Users/mohamedmoaaz/Desktop/hive/last_extracts"
         os.makedirs(self.last_extract_dir, exist_ok=True)
 
     @contextmanager

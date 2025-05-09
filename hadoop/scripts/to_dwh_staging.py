@@ -1,4 +1,4 @@
-from EL_to_hdfs import PostgresToHdfsExporter
+from EL_dwh import PostgresToHdfsExporter
 
 # Configuration
 PG_CONFIG = {
@@ -18,7 +18,7 @@ TABLES = [
     'dim_date',
     'fact_reservations'
 ]
-HDFS_PATH = '/user/hive/warehouse/staging/migrated'
+HDFS_PATH = '/user/hive/warehouse/staging/dwh'
 HDFS_CONTAINER = 'master1'
 CONTAINER_TEMP_DIR = '/tmp/csv_staging'
 
