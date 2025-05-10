@@ -1,81 +1,152 @@
-# Apache Hive Project Documentation
+# Airline Data Warehouse (DWH) Project
 
-## Overview
+---
 
-This project demonstrates the setup, configuration, and operation of Apache Hive running atop a Hadoop cluster in a containerized environment. The system is optimized for distributed processing, automated data extraction, incremental loading, and periodic data transformations.
+## 🚀 Overview
 
-## Project Components
+This project implements a robust Airline Data Warehouse (DWH) solution using Apache Hive atop a distributed Hadoop cluster. Designed for scalability, flexibility, and performance, it covers the complete lifecycle of data processing—from extraction and transformation to analytical querying.
 
-### Infrastructure Setup
+The project focuses primarily on the **fact\_flight\_reservations\_bigtable**, a denormalized fact table optimized for complex analytical workloads, providing insights into revenue streams, customer behavior, promotion effectiveness, and operational efficiency.
 
-* **Apache Hive on Hadoop Cluster:** Established a fully operational Apache Hive environment leveraging Hadoop for data storage and distributed computation.
-* **Multi-stage Dockerfile:** Created Dockerfiles for streamlined deployment of both Hadoop and Hive services.
-* **Service Orchestration:** Utilized `docker-compose.yml` for orchestrating Namenodes, Datanodes, Hive Server2, Hive Metastore, and PostgreSQL.
+---
 
-### Configuration
+## 📚 Table of Contents
 
-* **Execution Engine:** Set Apache Hive's execution engine to `Tez` for optimized performance.
-* **Hive Metastore:** Configured remote metastore using PostgreSQL for better scalability and metadata management.
-* **Environment and Networking:** Defined proper environment variables, volume mappings, Docker networks, port mappings, and dependencies.
-* **Hive and Tez Configuration:** Managed configurations in `hive-site.xml` and `tez-site.xml` to optimize Hive execution and resource allocation.
+* [Infrastructure Setup](#infrastructure-setup)
+* [Configuration](#configuration)
+* [Data Handling](#data-handling)
+* [ETL and ELT Automation](#etl-and-elt-automation)
+* [Schema and Table Optimization](#schema-and-table-optimization)
+* [Data Validation and Consistency](#data-validation-and-consistency)
+* [Scheduled Task Setup](#scheduled-task-setup)
 
-### Data Handling
+  * [Hive Server (Transformations)](#hive-server-transformations)
+  * [Local Host (Python ELT)](#local-host-python-elt)
+* [Conclusion](#conclusion)
 
-* **Data Migration:** Migrated historical DWH data to HDFS as CSV files and loaded transactional PostgreSQL data periodically.
-* **Incremental Loading:** Implemented a Python-based ELT script to incrementally load transactional data into Hive.
-* **Staging Area:** Loaded data initially to a staging schema on HDFS, then transformed it into Hive optimized schemas.
+---
 
-### ETL and ELT Automation
+## 🛠 Infrastructure Setup
 
-* **Python ELT Script:** Developed and deployed Python scripts to automate data extraction from PostgreSQL and incremental loading into Hive.
-* **Scheduled Automation:** Utilized `crontab` to schedule:
+* **Apache Hive & Hadoop:** Fully operational Hive environment leveraging Hadoop's distributed capabilities.
+* **Docker Containers:** Multi-stage Dockerfiles ensure consistent and reproducible environments.
+* **Service Orchestration:** Docker Compose setup for Namenodes, Datanodes, Hive Server2, Hive Metastore, and PostgreSQL.
 
-  * SQL transformation scripts on Hive server.
-  * Python incremental load scripts locally.
+---
 
-### Schema and Table Optimization
+## ⚙️ Configuration
 
-* **Hive Schema:** Designed a scalable schema optimized for distributed querying and analytics.
+* **Execution Engine:** Apache Tez for optimized Hive query performance.
+* **Remote Metastore:** PostgreSQL backend for efficient metadata management.
+* **Networking & Environment:** Comprehensive configurations in `hive-site.xml` and `tez-site.xml`.
 
-* **File Format (ORC):** Chose ORC (Optimized Row Columnar) files because they are highly compatible with Hive. ORC format provides efficient storage, compression, and improved query performance due to built-in indexing and statistics.
+---
 
-* **ACID Compliance:** Implemented Slowly Changing Dimensions (SCD) as ACID-compliant tables in Hive, supporting transactional operations such as row-level updates, deletes, and inserts, essential for managing slowly changing dimension data.
+## 📥 Data Handling
 
-* **Non-ACID Tables:** Managed larger, denormalized Hive tables optimized for query performance and minimal complexity. Non-ACID tables are suitable for data that doesn't require frequent updates or transactional consistency.
+* **Migration & Incremental Loading:** Historical data migration via CSV to HDFS, and periodic incremental loading from PostgreSQL using Python scripts.
+* **Staging Schema:** Initial loading into staging areas on HDFS before transformation into optimized Hive schemas.
 
-* **Partitioning Strategy:**
+---
 
-  * **Big Tables:** Partitioned by year and month to enhance query performance by enabling efficient pruning, minimizing data scanning, and optimizing resource utilization.
-  * **Passenger Dimension (ACID Table):** Partitioned by passenger frequent flyer tier, ensuring fast lookups and updates based on customer loyalty categories.
-  * **Promotions (ACID Table):** Partitioned by promotion type, allowing efficient management and queries related to promotional analytics.
+## 🔄 ETL and ELT Automation
 
-* **Bucketing Strategy:** Chose bucketing on passenger ID for both the big table and passenger dimension to evenly distribute data across buckets, facilitating efficient joins, aggregations, and data sampling.
+* **Python ELT Script:** Automates extraction from PostgreSQL and incremental data loading.
+* **Scheduled Automation:** Using `crontab` for automated data pipeline tasks.
 
-* **Compression (Snappy):** Selected Snappy compression for compaction because it provides a balance between compression ratio and processing speed, reducing storage costs and enhancing query performance without significant CPU overhead.
+---
 
-### Data Validation and Consistency
+## 📊 Schema and Table Optimization
 
-* Performed rigorous data validation checks to ensure consistency and correctness post-transformation.
+### **Fact Flight Reservations Bigtable**
 
-## Scheduled Task Setup
+* **Format:** ORC with Snappy Compression
+* **Partitioning:** Year, Month
+* **Bucketing:** Passenger ID (32 buckets)
+* **Location:** `/data/airline/analytics/reservations_bigtable`
 
-### Hive Server (Transformations)
+### **Dimensional References**
+
+| Column Name           | Data Type  | Reference        |
+| --------------------- | ---------- | ---------------- |
+| `Reservation_Key`     | NUMBER(10) | -                |
+| `ticket_id`           | NUMBER(10) | -                |
+| `channel_key`         | NUMBER(10) | `dim_channel`    |
+| `promotion_key`       | NUMBER(10) | `dim_promotion`  |
+| `passenger_key`       | NUMBER(10) | `dim_passenger`  |
+| `fare_basis_key`      | NUMBER(10) | `dim_fare_basis` |
+| `aircraft_key`        | NUMBER(10) | `dim_aircraft`   |
+| `source_airport`      | NUMBER(10) | `dim_airport`    |
+| `destination_airport` | NUMBER(10) | `dim_airport`    |
+
+### **Reservation & Temporal Attributes**
+
+* Key date fields linked to `dim_date`
+* Financial metrics for revenue and operational analysis
+
+---
+
+## ✅ Data Validation and Consistency
+
+Rigorous data validation checks post-transformations ensure accuracy and integrity.
+
+---
+
+## 🕒 Scheduled Task Setup
+
+### **Hive Server (Transformations)**
+
+Setup transformations to run daily at 2 AM:
 
 ```bash
 sudo service cron start
 
-echo export PATH=/usr/local/hive/bin:/usr/local/hadoop/bin:/usr/bin:/bin >> /app/hive_cron.sh
-echo "beeline -u jdbc:hive2://localhost:10000 -n hive -p hive -f /app/test.sql >> /app/hive_cron.log 2>&1" >> /app/hive_cron.sh
+# Create transformation script
+cat << EOF > /app/hive_cron.sh
+export PATH=/usr/local/hive/bin:/usr/local/hadoop/bin:/usr/bin:/bin
+beeline -u jdbc:hive2://localhost:10000 -n hive -p hive -f /app/test.sql >> /app/hive_cron.log 2>&1
+EOF
 
-echo "* 2 * * * /app/hive_cron.sh" | crontab -
+# Schedule task
+(crontab -l 2>/dev/null; echo "0 2 * * * /app/hive_cron.sh") | crontab -
 ```
 
-### Local Host (Python ELT)
+### **Local Host (Python ELT)**
+
+Python ELT script scheduled daily at 2 AM:
 
 ```bash
-* 2 * * * export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin && cd /Users/mohamedmoaaz/Desktop/hive/hadoop/scripts && /usr/local/bin/python3 to_source_staging.py >> /Users/mohamedmoaaz/Desktop/output.log 2>&1
+(crontab -l 2>/dev/null; echo "0 2 * * * export PATH=/usr/local/bin:/usr/bin:/bin && cd /Users/mohamedmoaaz/Desktop/hive/hadoop/scripts && /usr/local/bin/python3 to_source_staging.py >> /Users/mohamedmoaaz/Desktop/output.log 2>&1") | crontab -
 ```
 
-## Conclusion
+---
 
-This comprehensive project setup provides an efficient, reliable, and scalable solution for data warehousing using Apache Hive, facilitating both batch and incremental data processing workflows.
+## 🧩 Data Lineage and Transformation
+
+Source tables joined and mapped to enrich reservation data with dimensional attributes:
+
+* `fact_reservations`
+* `scd_passengers`
+* `scd_promotions`
+* `dim_airports`
+* `dim_fare_basis_codes`
+* `dim_sales_channels`
+* `dim_date`
+
+Calculated fields such as `final_price` derived based on defined business rules.
+
+---
+
+## 🎯 Analytical Applications
+
+* **Revenue Analysis:** Analyze revenue trends from detailed financial metrics.
+* **Customer Insights:** Assess booking patterns and demographics.
+* **Promotion Effectiveness:** Evaluate promotional strategies.
+* **Operational Efficiency:** Optimize cancellation and fee structures.
+* **Market Trends:** Identify market trends through temporal and regional analytics.
+
+---
+
+## 🚩 Conclusion
+
+This comprehensive Airline Data Warehouse solution offers robust, scalable, and optimized data warehousing capabilities using Apache Hive, effectively supporting both incremental and batch data processing workflows in a structured and maintainable framework.
