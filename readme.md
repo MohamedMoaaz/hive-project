@@ -1,152 +1,221 @@
-# Airline Data Warehouse (DWH) Project
+# Apache Hive Project Documentation
 
----
+## Overview
 
-## 🚀 Overview
+This project demonstrates the setup, configuration, and operation of Apache Hive running atop a Hadoop cluster in a containerized environment. The system is optimized for distributed processing, automated data extraction, incremental loading, and periodic data transformations.
 
-This project implements a robust Airline Data Warehouse (DWH) solution using Apache Hive atop a distributed Hadoop cluster. Designed for scalability, flexibility, and performance, it covers the complete lifecycle of data processing—from extraction and transformation to analytical querying.
+## Project Components
 
-The project focuses primarily on the **fact\_flight\_reservations\_bigtable**, a denormalized fact table optimized for complex analytical workloads, providing insights into revenue streams, customer behavior, promotion effectiveness, and operational efficiency.
+### Infrastructure Setup
 
----
+* **Apache Hive on Hadoop Cluster:** Established a fully operational Apache Hive environment leveraging Hadoop for data storage and distributed computation.
+* **Multi-stage Dockerfile:** Created Dockerfiles for streamlined deployment of both Hadoop and Hive services.
+* **Service Orchestration:** Utilized `docker-compose.yml` for orchestrating Namenodes, Datanodes, Hive Server2, Hive Metastore, and PostgreSQL.
 
-## 📚 Table of Contents
+### Configuration
 
-* [Infrastructure Setup](#infrastructure-setup)
-* [Configuration](#configuration)
-* [Data Handling](#data-handling)
-* [ETL and ELT Automation](#etl-and-elt-automation)
-* [Schema and Table Optimization](#schema-and-table-optimization)
-* [Data Validation and Consistency](#data-validation-and-consistency)
-* [Scheduled Task Setup](#scheduled-task-setup)
+* **Execution Engine:** Set Apache Hive's execution engine to `Tez` for optimized performance.
+* **Hive Metastore:** Configured remote metastore using PostgreSQL for better scalability and metadata management.
+* **Environment and Networking:** Defined proper environment variables, volume mappings, Docker networks, port mappings, and dependencies.
+* **Hive and Tez Configuration:** Managed configurations in `hive-site.xml` and `tez-site.xml` to optimize Hive execution and resource allocation.
 
-  * [Hive Server (Transformations)](#hive-server-transformations)
-  * [Local Host (Python ELT)](#local-host-python-elt)
-* [Conclusion](#conclusion)
+### Data Handling
 
----
+* **Data Migration:** Migrated historical DWH data to HDFS as CSV files and loaded transactional PostgreSQL data periodically.
+* **Incremental Loading:** Implemented a Python-based ELT script to incrementally load transactional data into Hive.
+* **Staging Area:** Loaded data initially to a staging schema on HDFS, then transformed it into Hive optimized schemas.
 
-## 🛠 Infrastructure Setup
+### ETL and ELT Automation
 
-* **Apache Hive & Hadoop:** Fully operational Hive environment leveraging Hadoop's distributed capabilities.
-* **Docker Containers:** Multi-stage Dockerfiles ensure consistent and reproducible environments.
-* **Service Orchestration:** Docker Compose setup for Namenodes, Datanodes, Hive Server2, Hive Metastore, and PostgreSQL.
+* **Python ELT Script:** Developed and deployed Python scripts to automate data extraction from PostgreSQL and incremental loading into Hive.
+* **Scheduled Automation:** Utilized `crontab` to schedule:
 
----
+  * SQL transformation scripts on Hive server.
+  * Python incremental load scripts locally.
 
-## ⚙️ Configuration
+### Schema and Table Optimization
 
-* **Execution Engine:** Apache Tez for optimized Hive query performance.
-* **Remote Metastore:** PostgreSQL backend for efficient metadata management.
-* **Networking & Environment:** Comprehensive configurations in `hive-site.xml` and `tez-site.xml`.
 
----
+![Fact_Reservation](https://github.com/TmohamedashrafT/Airline-DWH/blob/main/drawio%20schema/fact_reservation.drawio.png)
 
-## 📥 Data Handling
+### Columns  
 
-* **Migration & Incremental Loading:** Historical data migration via CSV to HDFS, and periodic incremental loading from PostgreSQL using Python scripts.
-* **Staging Schema:** Initial loading into staging areas on HDFS before transformation into optimized Hive schemas.
+#### Foreign Keys (Dimensional References)  
+These columns link to various dimension tables to provide detailed contextual information.  
 
----
+| Column Name              | Data Type      | Description                                          | Reference Dimension |
+|--------------------------|---------------|------------------------------------------------------|----------------------|
+| `Reservation_Key`        | NUMBER(10) (PK) | Unique identifier for each reservation record.       | - |
+| `ticket_id`             | NUMBER(10)     | Unique identifier for the ticket.                   | - |
+| `channel_key`           | NUMBER(10)     | Booking channel used for the reservation.           | `dim_channel` |
+| `promotion_key`         | NUMBER(10)     | Promotion applied to the reservation.               | `dim_promotion` (if applicable) |
+| `passenger_key`         | NUMBER(10)     | Passenger associated with the reservation.          | `dim_passenger` |
+| `fare_basis_key`        | NUMBER(10)     | Fare classification for the reservation.            | `dim_fare_basis` |
+| `aircraft_key`          | NUMBER(10)     | Aircraft used for the flight.                       | `dim_aircraft` |
+| `source_airport`        | NUMBER(10)     | Departure airport.                                  | `dim_airport` |
+| `destination_airport`   | NUMBER(10)     | Arrival airport.                                    | `dim_airport` |
 
-## 🔄 ETL and ELT Automation
+#### Date and Time Attributes  
+These attributes provide insights into reservation and flight schedules.  
 
-* **Python ELT Script:** Automates extraction from PostgreSQL and incremental data loading.
-* **Scheduled Automation:** Using `crontab` for automated data pipeline tasks.
+| Column Name              | Data Type      | Description                                          | Reference Dimension |
+|--------------------------|---------------|------------------------------------------------------|----------------------|
+| `reservation_date_key`   | NUMBER(8)     | Date when the reservation was made.                 | `dim_date` |
+| `departure_date_key`     | NUMBER(8)     | Scheduled departure date of the flight.             | `dim_date` |
+| `departure_time`         | TIMESTAMP     | Exact departure time of the flight.                 | - |
+| `Reservation_timestamp`  | TIMESTAMP     | Timestamp when the reservation was created.         | - |
 
----
+#### Reservation Details  
 
-## 📊 Schema and Table Optimization
+| Column Name              | Data Type      | Description                                          |
+|--------------------------|---------------|------------------------------------------------------|
+| `payment_method`         | STRING  | Payment method used for the reservation.            |
+| `seat_no`               | STRING  | Seat assigned to the passenger.                     |
+| `Is_Cancelled`          | NUMBER(1)     | Indicates if the reservation was canceled (0 = No, 1 = Yes). |
 
-### **Fact Flight Reservations Bigtable**
+#### Measures & Calculations  
 
-* **Format:** ORC with Snappy Compression
-* **Partitioning:** Year, Month
-* **Bucketing:** Passenger ID (32 buckets)
-* **Location:** `/data/airline/analytics/reservations_bigtable`
+These numeric attributes are used for financial analysis and revenue tracking.  
 
-### **Dimensional References**
+| Column Name          | Data Type      | Description                                              | Calculation |
+|----------------------|---------------|----------------------------------------------------------|-------------|
+| `Promotion_Amount`  | NUMBER(10,2)  | Discount applied to the reservation.                    | - |
+| `tax_amount`        | NUMBER(10,2)  | Tax amount added to the ticket price.                   | - |
+| `Operational_Fees`  | NUMBER(10,2)  | Additional fees for operations (e.g., service fees).    | - |
+| `Cancelation_Fees`  | NUMBER(10,2)  | Fees applied if the reservation is canceled.            | - |
+| `Fare_Price`        | NUMBER(10,2)  | Base fare price of the ticket.                          | - |
+| `Final_Price`       | NUMBER(10,2)  | Total price paid by the passenger.                      | `if Is_cancelled == 0: Final_price = Fare_Price + Operational_Fees + tax_amount - Promotion_Amount else: Final_price = Cancelation_Fees` |
 
-| Column Name           | Data Type  | Reference        |
-| --------------------- | ---------- | ---------------- |
-| `Reservation_Key`     | NUMBER(10) | -                |
-| `ticket_id`           | NUMBER(10) | -                |
-| `channel_key`         | NUMBER(10) | `dim_channel`    |
-| `promotion_key`       | NUMBER(10) | `dim_promotion`  |
-| `passenger_key`       | NUMBER(10) | `dim_passenger`  |
-| `fare_basis_key`      | NUMBER(10) | `dim_fare_basis` |
-| `aircraft_key`        | NUMBER(10) | `dim_aircraft`   |
-| `source_airport`      | NUMBER(10) | `dim_airport`    |
-| `destination_airport` | NUMBER(10) | `dim_airport`    |
+### Usage  
+- Supports revenue analysis and pricing optimization.  
+- Helps in understanding passenger booking patterns and channel preferences.  
+- Tracks the impact of promotions and cancellation fees on overall revenue.  
+- Provides insights into reservation trends and seat allocation efficiency.
 
-### **Reservation & Temporal Attributes**
 
-* Key date fields linked to `dim_date`
-* Financial metrics for revenue and operational analysis
+* **Hive Schema:** Designed a scalable schema optimized for distributed querying and analytics.
 
----
 
-## ✅ Data Validation and Consistency
+* **File Format (ORC):** Chose ORC (Optimized Row Columnar) files because they are highly compatible with Hive. ORC format provides efficient storage, compression, and improved query performance due to built-in indexing and statistics.
 
-Rigorous data validation checks post-transformations ensure accuracy and integrity.
+* **ACID Compliance:** Implemented Slowly Changing Dimensions (SCD) as ACID-compliant tables in Hive, supporting transactional operations such as row-level updates, deletes, and inserts, essential for managing slowly changing dimension data.
 
----
+* **Non-ACID Tables:** Managed larger, denormalized Hive tables optimized for query performance and minimal complexity. Non-ACID tables are suitable for data that doesn't require frequent updates or transactional consistency.
 
-## 🕒 Scheduled Task Setup
+* **Partitioning Strategy:**
 
-### **Hive Server (Transformations)**
+  * **Big Tables:** Partitioned by year and month to enhance query performance by enabling efficient pruning, minimizing data scanning, and optimizing resource utilization.
+  * **Passenger Dimension (ACID Table):** Partitioned by passenger frequent flyer tier, ensuring fast lookups and updates based on customer loyalty categories.
+  * **Promotions (ACID Table):** Partitioned by promotion type, allowing efficient management and queries related to promotional analytics.
 
-Setup transformations to run daily at 2 AM:
+* **Bucketing Strategy:** Chose bucketing on passenger ID for both the big table and passenger dimension to evenly distribute data across buckets, facilitating efficient joins, aggregations, and data sampling.
+
+* **Compression (Snappy):** Selected Snappy compression for compaction because it provides a balance between compression ratio and processing speed, reducing storage costs and enhancing query performance without significant CPU overhead.
+
+### Data Validation and Consistency
+
+* Performed rigorous data validation checks to ensure consistency and correctness post-transformation.
+
+## Scheduled Task Setup
+
+### Hive Server (Transformations)
+
+# Fact Flight Reservations Bigtable
+
+## Overview
+The `fact_flight_reservations_bigtable` table serves as a denormalized fact table, consolidating flight reservation data enriched with passenger, promotion, airport, fare, and channel information. Designed for analytical workloads, it supports partitioning and bucketing to optimize query performance.
+
+### Storage Details
+- **Storage Format:** Parquet
+- **Partitioned By:** `reservation_year`, `reservation_month`
+- **Clustered By:** `passenger_id` into 32 buckets
+- **Location:** `/data/airline/analytics/reservations_bigtable`
+
+# Fact Flight Reservations Bigtable
+
+## Overview
+The `fact_flight_reservations_bigtable` table serves as a denormalized fact table, consolidating flight reservation data enriched with passenger, promotion, airport, fare, and channel information. Designed for analytical workloads, it supports partitioning and bucketing to optimize query performance.
+
+### Storage Details
+- **Storage Format:** Parquet
+- **Partitioned By:** `reservation_year`, `reservation_month`
+- **Clustered By:** `passenger_id` into 32 buckets
+- **Location:** `/data/airline/analytics/reservations_bigtable`
+
+### Table Properties
+
+| Column Name | Data Type | Description |
+|-------------|-----------|-------------|
+| booking_class | STRING | Booking class code (e.g., Economy, Business). |
+| seat_number | STRING | Assigned seat number for the passenger. |
+| is_cancelled | BOOLEAN | Indicates if the reservation was canceled. |
+| cancellation_reason | STRING | Reason provided for cancellation, if any. |
+
+### Passenger Details
+| Column Name | Data Type | Description |
+|-------------|-----------|-------------|
+| passenger_id | STRING | Unique identifier for the passenger. |
+| passenger_name | STRING | Full name of the passenger. |
+| passenger_dob | DATE | Date of birth of the passenger. |
+| passenger_nationality | STRING | Nationality of the passenger. |
+| passenger_gender | STRING | Gender of the passenger. |
+| frequent_flyer_tier | STRING | Frequent flyer tier status. |
+
+### Fare and Promotion Details
+| Column Name | Data Type | Description |
+|-------------|-----------|-------------|
+| fare_basis_code | STRING | Fare basis code for the ticket. |
+| fare_class | STRING | Fare class category. |
+| refundable | BOOLEAN | Indicates if the ticket is refundable. |
+| baggage_allowance | STRING | Baggage allowance associated with the fare. |
+| promotion_name | STRING | Name of the applied promotion. |
+| promotion_type | STRING | Type/category of the promotion. |
+| discount_value | DECIMAL(10,2) | Monetary value of the discount. |
+| discount_type | STRING | Type of discount (e.g., percentage, fixed). |
+
+
+## Data Lineage and Transformation
+Data for the `fact_flight_reservations_bigtable` table is sourced and transformed through a series of joins and mappings:
+
+### Source Tables:
+- `dwh_staging.fact_reservations` (fact table)
+- `scd_passengers` (slowly changing dimension for passengers)
+- `scd_promotions` (slowly changing dimension for promotions)
+- `dwh_staging.dim_airports` (airport dimension)
+- `dwh_staging.dim_fare_basis_codes` (fare basis dimension)
+- `dwh_staging.dim_sales_channels` (sales channel dimension)
+- `dwh_staging.dim_date` (date dimension)
+
+### Transformation Logic:
+- Joins are performed to enrich reservation data with passenger, promotion, airport, fare, and channel details
+- Date keys are mapped to actual dates using the date dimension
+- Calculated fields such as `final_price` are derived based on business rules (e.g., applying promotions, taxes, and fees)
+
+## Usage and Analytical Applications
+The `fact_flight_reservations_bigtable` table is designed to support various analytical use cases:
+
+- **Revenue Analysis:** Evaluate revenue streams by analyzing fare prices, taxes, operational fees, and discounts
+- **Customer Insights:** Understand passenger demographics, booking behaviors, and loyalty tier distributions
+- **Promotion Effectiveness:** Assess the impact of different promotions on sales and customer acquisition
+- **Operational Efficiency:** Monitor cancellation rates, reasons, and associated fees to improve operational strategies
+- **Market Trends:** Analyze booking patterns across different regions, channels, and time periods to identify market trends
+
 
 ```bash
 sudo service cron start
 
-# Create transformation script
-cat << EOF > /app/hive_cron.sh
-export PATH=/usr/local/hive/bin:/usr/local/hadoop/bin:/usr/bin:/bin
-beeline -u jdbc:hive2://localhost:10000 -n hive -p hive -f /app/test.sql >> /app/hive_cron.log 2>&1
-EOF
+echo export PATH=/usr/local/hive/bin:/usr/local/hadoop/bin:/usr/bin:/bin >> /app/hive_cron.sh
+echo "beeline -u jdbc:hive2://localhost:10000 -n hive -p hive -f /app/test.sql >> /app/hive_cron.log 2>&1" >> /app/hive_cron.sh
 
-# Schedule task
-(crontab -l 2>/dev/null; echo "0 2 * * * /app/hive_cron.sh") | crontab -
+echo "* 2 * * * /app/hive_cron.sh" | crontab -
 ```
 
-### **Local Host (Python ELT)**
-
-Python ELT script scheduled daily at 2 AM:
+### Local Host (Python ELT)
 
 ```bash
-(crontab -l 2>/dev/null; echo "0 2 * * * export PATH=/usr/local/bin:/usr/bin:/bin && cd /Users/mohamedmoaaz/Desktop/hive/hadoop/scripts && /usr/local/bin/python3 to_source_staging.py >> /Users/mohamedmoaaz/Desktop/output.log 2>&1") | crontab -
+* 2 * * * export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin && cd /Users/mohamedmoaaz/Desktop/hive/hadoop/scripts && /usr/local/bin/python3 to_source_staging.py >> /Users/mohamedmoaaz/Desktop/output.log 2>&1
 ```
 
----
+## Conclusion
 
-## 🧩 Data Lineage and Transformation
-
-Source tables joined and mapped to enrich reservation data with dimensional attributes:
-
-* `fact_reservations`
-* `scd_passengers`
-* `scd_promotions`
-* `dim_airports`
-* `dim_fare_basis_codes`
-* `dim_sales_channels`
-* `dim_date`
-
-Calculated fields such as `final_price` derived based on defined business rules.
-
----
-
-## 🎯 Analytical Applications
-
-* **Revenue Analysis:** Analyze revenue trends from detailed financial metrics.
-* **Customer Insights:** Assess booking patterns and demographics.
-* **Promotion Effectiveness:** Evaluate promotional strategies.
-* **Operational Efficiency:** Optimize cancellation and fee structures.
-* **Market Trends:** Identify market trends through temporal and regional analytics.
-
----
-
-## 🚩 Conclusion
-
-This comprehensive Airline Data Warehouse solution offers robust, scalable, and optimized data warehousing capabilities using Apache Hive, effectively supporting both incremental and batch data processing workflows in a structured and maintainable framework.
+This comprehensive project setup provides an efficient, reliable, and scalable solution for data warehousing using Apache Hive, facilitating both batch and incremental data processing workflows.
